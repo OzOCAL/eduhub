@@ -5,6 +5,7 @@ import { DeleteUserDto } from './dto/delete-user.dto';
 import { Role, User } from 'generated/prisma';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUserDto } from './dto/get-user.dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
@@ -25,9 +26,10 @@ export class UsersService {
   }
 
   async createUser(createUserDto: CreateUserDto) {
-    const user = await this.prismaService.user.create({
-      data: createUserDto,
-    });
+    // Hash password before saving
+    const hashed = await bcrypt.hash(createUserDto.password, 10);
+    const data = { ...createUserDto, password: hashed } as any;
+    const user = await this.prismaService.user.create({ data });
     return user;
   }
 
@@ -63,9 +65,15 @@ export class UsersService {
       throw new ForbiddenException("Vous n'êtes pas autotisé à modifier ce compte")
     }
 
+    // If password provided, hash it before updating
+    const updateData: any = { ...updateUserDto };
+    if (updateUserDto.password) {
+      updateData.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
+
     await this.prismaService.user.update({
-      where: {id : updateUserDto.id},
-      data: updateUserDto,
+      where: { id: updateUserDto.id },
+      data: updateData,
     });
 
     return userToUpdate;
