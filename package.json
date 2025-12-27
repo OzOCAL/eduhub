@@ -19,6 +19,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "generate:recipe": "ts-node -r tsconfig-paths/register scripts/generate-recipe.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -29,12 +30,14 @@
     "@nestjs/platform-express": "11.1.8",
     "@nestjs/swagger": "^11.2.1",
     "@prisma/client": "^6.18.0",
+    "ai": "^5.0.113",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
