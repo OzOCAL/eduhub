@@ -23,6 +23,19 @@ export class CoursesService {
         return this.getCourses(getUserDto.id)
     }
 
+    async getCourseById(id: string) {
+        const course = await this.prismaService.course.findUnique({
+            where: { id },
+            include: { teacher: true, students: true, documents: true },
+        });
+
+        if (!course) {
+            throw new NotFoundException(`Le cours avec l'id ${id} est introuvable`);
+        }
+
+        return course;
+    }
+
     async createCourse(createCourseDto: CreateCourseDto) {
         const { teacherId, students, ...rest } = createCourseDto as any;
         const data: any = {
@@ -52,7 +65,6 @@ export class CoursesService {
         }
 
         if (students !== undefined) {
-            // replace students list with provided ids
             data.students = { set: students.map((s: string) => ({ id: s })) };
         }
 
@@ -66,10 +78,8 @@ export class CoursesService {
     }
 
     async createDocuments(courseId: string, createDocumentDtos: import('./dto/create-document.dto').CreateDocumentDto[]){
-        // Normalize to array
         const docs = Array.isArray(createDocumentDtos) ? createDocumentDtos : [createDocumentDtos];
 
-        // attach courseId to each doc and create
         const created = await Promise.all(docs.map(dto => {
             const data = { ...dto, courseId } as any;
             return this.prismaService.document.create({ data });
@@ -90,5 +100,49 @@ export class CoursesService {
         }
         
         return this.prismaService.course.delete({ where: { id } });
+    }
+
+    async enrollStudents(courseId: string, studentIds: string[]) {
+        const course = await this.prismaService.course.findUnique({
+            where: { id: courseId },
+        });
+
+        if (!course) {
+            throw new NotFoundException(`Le cours avec l'id ${courseId} est introuvable`);
+        }
+
+        const updatedCourse = await this.prismaService.course.update({
+            where: { id: courseId },
+            data: {
+                students: {
+                    connect: studentIds.map((id) => ({ id })),
+                },
+            },
+            include: { teacher: true, students: true },
+        });
+
+        return updatedCourse;
+    }
+
+    async unenrollStudents(courseId: string, studentIds: string[]) {
+        const course = await this.prismaService.course.findUnique({
+            where: { id: courseId },
+        });
+
+        if (!course) {
+            throw new NotFoundException(`Le cours avec l'id ${courseId} est introuvable`);
+        }
+
+        const updatedCourse = await this.prismaService.course.update({
+            where: { id: courseId },
+            data: {
+                students: {
+                    disconnect: studentIds.map((id) => ({ id })),
+                },
+            },
+            include: { teacher: true, students: true },
+        });
+
+        return updatedCourse;
     }
 }

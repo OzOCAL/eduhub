@@ -18,7 +18,19 @@ export class CoursesController {
     ) {}
 
     @Public()
+    @Get()
+    async getAllCourses() {
+        return this.coursesService.getCourses();
+    }
+
+    @Public()
     @Get(':id')
+    async getCourseById(@Param('id') id: string) {
+        return this.coursesService.getCourseById(id);
+    }
+
+    @Public()
+    @Get('student/:id')
     async getCoursesByStudentId(@Param() getUserDto: GetUserDto) {
         return this.coursesService.getCoursesByStudentId(getUserDto);
     }
@@ -49,5 +61,19 @@ export class CoursesController {
     @Delete(':id')
     async deleteCourse(@Param() deleteCourseDto: DeleteCourseDto) {
         return this.coursesService.deleteCourse(deleteCourseDto);
+    }
+
+    @Roles(Role.ADMIN, Role.TEACHER)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Post(':id/enroll')
+    async enrollStudents(@Param('id') courseId: string, @Body() body: { studentIds: string[] }) {
+        return this.coursesService.enrollStudents(courseId, body.studentIds);
+    }
+
+    @Roles(Role.ADMIN, Role.TEACHER)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Post(':id/unenroll')
+    async unenrollStudents(@Param('id') courseId: string, @Body() body: { studentIds: string[] }) {
+        return this.coursesService.unenrollStudents(courseId, body.studentIds);
     }
 }
