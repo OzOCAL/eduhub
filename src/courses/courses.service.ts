@@ -3,6 +3,8 @@ import { PrismaService } from 'src/database/prisma.service';
 import { GetUserDto } from 'src/users/dto/get-user.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { DeleteCourseDto } from './dto/delete-course.dto';
+import { existsSync, promises as fsPromises } from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class CoursesService {
@@ -77,15 +79,75 @@ export class CoursesService {
         return course;
     }
 
-    async createDocuments(courseId: string, createDocumentDtos: import('./dto/create-document.dto').CreateDocumentDto[]){
-        const docs = Array.isArray(createDocumentDtos) ? createDocumentDtos : [createDocumentDtos];
+    async createDocumentsFromFiles(courseId: string, files: Express.Multer.File[]) {
+        const course = await this.prismaService.course.findUnique({
+            where: { id: courseId },
+        });
 
-        const created = await Promise.all(docs.map(dto => {
-            const data = { ...dto, courseId } as any;
-            return this.prismaService.document.create({ data });
-        }));
+        if (!course) {
+            throw new NotFoundException(`Le cours avec l'id ${courseId} est introuvable`);
+        }
 
-        return created;
+        const documents = await Promise.all(
+            files.map((file) => {
+                return this.prismaService.document.create({
+                    data: {
+                        title: file.originalname,
+                        fileName: file.filename,
+                        fileType: file.mimetype,
+                        path: `/uploads/${file.filename}`,
+                        courseId,
+                    },
+                });
+            }),
+        );
+
+        return documents;
+    }
+
+    async getCourseDocuments(courseId: string) {
+        const course = await this.prismaService.course.findUnique({
+            where: { id: courseId },
+        });
+
+        if (!course) {
+            throw new NotFoundException(`Le cours avec l'id ${courseId} est introuvable`);
+        }
+
+        return this.prismaService.document.findMany({
+            where: { courseId },
+        });
+    }
+
+    async getDocumentById(id: string) {
+        const doc = await this.prismaService.document.findUnique({
+            where: { id },
+        });
+
+        if (!doc) {
+            throw new NotFoundException(`Le document avec l'id ${id} est introuvable`);
+        }
+
+        return doc;
+    }
+
+    async deleteDocument(id: string) {
+        const doc = await this.prismaService.document.findUnique({ where: { id } });
+        if (!doc) {
+            throw new NotFoundException(`Le document avec l'id ${id} est introuvable`);
+        }
+
+        const filePath = join(process.cwd(), 'uploads', doc.fileName);
+        if (existsSync(filePath)) {
+            try {
+                await fsPromises.unlink(filePath);
+            } catch (err) {
+                // On ignore l'erreur de suppression du fichier mais on continue la suppression DB
+            }
+        }
+
+        await this.prismaService.document.delete({ where: { id } });
+        return { success: true } as const;
     }
 
     async deleteCourse(deleteCourseDto: DeleteCourseDto) {

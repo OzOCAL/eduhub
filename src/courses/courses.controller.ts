@@ -1,14 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards, Patch, UseInterceptors, UploadedFiles, Res } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { Public, Roles } from 'src/auth/decorators/public.decorator';
 import { GetUserDto } from 'src/users/dto/get-user.dto';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { Role } from 'generated/prisma';
 import { AuthGuard, RolesGuard } from 'src/auth/auth.guard';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { DeleteCourseDto } from './dto/delete-course.dto';
 import { CreateDocumentDto } from './dto/create-document.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { multerConfig } from './multer.config';
+import { Response } from 'express';
+import { join } from 'path';
 
 @ApiBearerAuth()
 @Controller('courses')
@@ -52,9 +56,37 @@ export class CoursesController {
     @Roles(Role.ADMIN, Role.TEACHER)
     @UseGuards(AuthGuard, RolesGuard)
     @Post(':id/documents')
-    async postDocuments(@Param('id') id: string, @Body() createDocumentDtos: CreateDocumentDto[] | CreateDocumentDto) {
-        return this.coursesService.createDocuments(id, createDocumentDtos as CreateDocumentDto[]);
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                files: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                        format: 'binary',
+                    },
+                },
+            },
+        },
+    })
+    @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
+    async uploadDocuments(
+        @Param('id') courseId: string,
+        @UploadedFiles() files: Express.Multer.File[],
+    ) {
+        return this.coursesService.createDocumentsFromFiles(courseId, files);
     }
+
+    @Public()
+    @Get(':id/documents')
+    async getCourseDocuments(@Param('id') id: string) {
+        return this.coursesService.getCourseDocuments(id);
+    }
+
+    // Ancienne route de téléchargement par nom de fichier supprimée au profit
+    // de /resources/:id/download dans ResourcesController
 
     @Roles(Role.ADMIN)
     @UseGuards(AuthGuard, RolesGuard)
