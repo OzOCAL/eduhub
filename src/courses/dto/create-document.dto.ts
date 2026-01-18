@@ -18,7 +18,6 @@ export class CreateDocumentDto {
     @ApiProperty()
     path: string
 
-    // courseId is taken from route param, not required in body
     @IsOptional()
     @IsString()
     @ApiProperty({ required: false })
